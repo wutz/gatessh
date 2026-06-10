@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gatessh-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gatessh-controller
+  namespace: gatessh-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gatessh-controller
+rules:
+- apiGroups: ["gateway.ssh.io"]
+  resources: ["sshgatewayclasses", "sshgateways", "sshroutes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["gateway.ssh.io"]
+  resources: ["sshgatewayclasses/status", "sshgateways/status", "sshroutes/status"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: [""]
+  resources: ["secrets", "services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gatessh-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gatessh-controller
+subjects:
+- kind: ServiceAccount
+  name: gatessh-controller
+  namespace: gatessh-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gatessh-controller
+  namespace: gatessh-system
+  labels:
+    app: gatessh-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gatessh-controller
+  template:
+    metadata:
+      labels:
+        app: gatessh-controller
+    spec:
+      serviceAccountName: gatessh-controller
+      containers:
+      - name: controller
+        image: ghcr.io/wutz/gatessh:main
+        args:
+        - --metrics-bind-address=:8080
+        - --health-probe-bind-address=:8081
+        ports:
+        - containerPort: 8080
+          name: metrics
+        - containerPort: 8081
+          name: health
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
