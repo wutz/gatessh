@@ -66,6 +66,7 @@ spec:
       containers:
       - name: controller
         image: ghcr.io/wutz/gatessh:main
+        imagePullPolicy: Always
         args:
         - --metrics-bind-address=:8080
         - --health-probe-bind-address=:8081
