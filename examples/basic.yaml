@@ -1,0 +1,68 @@
+apiVersion: gateway.ssh.io/v1alpha1
+kind: SSHGatewayClass
+metadata:
+  name: gatessh
+spec:
+  controllerName: io.gatessh/controller
+  description: "GateSSH default controller"
+---
+apiVersion: gateway.ssh.io/v1alpha1
+kind: SSHGateway
+metadata:
+  name: ssh-gateway
+  namespace: default
+spec:
+  gatewayClassName: gatessh
+  listeners:
+  - name: ssh
+    port: 2222
+    protocol: SSH
+    hostKey:
+      name: ssh-host-key
+    auth:
+      methods:
+      - PublicKey
+      - Password
+      maxRetries: 3
+---
+apiVersion: gateway.ssh.io/v1alpha1
+kind: SSHRoute
+metadata:
+  name: admin-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: ssh-gateway
+  rules:
+  - matches:
+    - users:
+      - admin
+      - ops
+    backendRefs:
+    - name: management-server
+      port: 22
+    filters:
+    - type: RecordSession
+      recordSession:
+        enabled: true
+        path: /var/log/gatessh/sessions
+  - matches:
+    - users:
+      - developer
+      commands:
+      - type: Prefix
+        value: "git "
+      - type: Exact
+        value: "ls"
+    backendRefs:
+    - name: dev-server
+      port: 22
+    filters:
+    - type: CommandTemplate
+      commandTemplate:
+        allowedCommands:
+        - "git *"
+        - "ls *"
+        - "cat *"
+        deniedCommands:
+        - "rm -rf *"
