@@ -61,6 +61,8 @@ spec:
         app: gatessh-controller
     spec:
       serviceAccountName: gatessh-controller
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: controller
         image: ghcr.io/wutz/gatessh:main
